@@ -23,7 +23,6 @@ import azure.cognitiveservices.speech as speechsdk
 # The other libraries
 import os 
 import time
-import tempfile
 import subprocess
 from pydub import AudioSegment
 from pydub.playback import play
@@ -39,10 +38,10 @@ if not api_key:
 client = OpenAI(api_key=api_key)
 
 # A function that will generate a response based on what the user inputs
-def chat_gpt(prompt):
+def chat_gpt(conversation_history):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content" : prompt}]
+        messages=conversation_history
     )
 
     return response.choices[0].message.content.strip()
@@ -147,6 +146,9 @@ if __name__ == "__main__":
     speech_manager = SpeechToTextManager()
     tts_manager = TextToSpeechManager()
 
+    # Initialize the conversation history with a system message
+    conversation_history = [{"role": "system", "content": "You have memory in this session. You will remember things mentioned until the session ends."}]
+
     while True:
         try:
             speech_text = speech_manager.speechtotext_from_mic()
@@ -154,8 +156,14 @@ if __name__ == "__main__":
             if speech_text:
                 print(f"\nUser: {speech_text}")
 
-                chat_response = chat_gpt(speech_text)
+                # Add user's speech to conversation history
+                conversation_history.append({"role": "user", "content": speech_text})
+
+                chat_response = chat_gpt(conversation_history)
                 print(f"Bot: {chat_response}")
+
+                # Add the bot's response to the conversation history
+                conversation_history.append({"role": "assistant", "content": chat_response})
 
                 tts_manager.text_to_speech(chat_response)
             else:
